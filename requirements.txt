@@ -1,6 +1,6 @@
 asyncio
 uvloop
-aiohttp
+aiohttp<v4.0.0
 aioprocessing
 PyOpenSSL
 construct==2.9.52
