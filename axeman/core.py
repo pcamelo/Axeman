@@ -6,6 +6,7 @@ import uvloop
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
 import sys
+import json
 import math
 import base64
 import os
@@ -145,7 +146,11 @@ async def processing_coro(download_results_queue, output_dir="/tmp"):
 
 
         for entry in entries_iter:
-            csv_storage = '{}/certificates/{}'.format(output_dir, entry['log_info']['url'].replace('/', '_'))
+
+            scheme_index = entry['log_info']['url'].index("://")
+            escaped_url = entry['log_info']['url'][scheme_index+len("://"):].replace('/', '_')
+
+            csv_storage = '{}/certificates/{}'.format(output_dir, escaped_url)
             if not os.path.exists(csv_storage):
                 print("[{}] Making dir...".format(os.getpid()))
                 os.makedirs(csv_storage)
@@ -238,18 +243,23 @@ def process_worker(result_info):
 async def get_certs_and_print():
     async with aiohttp.ClientSession(conn_timeout=5) as session:
         ctls = await certlib.retrieve_all_ctls(session)
-        print("Found {} CTLs...".format(len(ctls)))
+        #print("Found {} CTLs...".format(len(ctls)))
+        output = []
         for log in ctls:
             try:
                 log_info = await certlib.retrieve_log_info(log, session)
             except:
                 continue
 
-            print(log['description'])
-            print("    \- URL:            {}".format(log['url']))
-            print("    \- Owner:          {}".format(log_info['operated_by']))
-            print("    \- Cert Count:     {}".format(locale.format("%d", log_info['tree_size']-1, grouping=True)))
-            print("    \- Max Block Size: {}\n".format(log_info['block_size']))
+            output.append({
+                "description": log['description'],
+                "url": log['url'],
+                "owner": log_info['operated_by'],
+                "cert_count": log_info['tree_size']-1,
+                "max_block_size": log_info['block_size']
+            })
+
+        print(json.dumps(output, indent=4))
 
 def main():
     loop = asyncio.get_event_loop()
